@@ -3,12 +3,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
-// Компоненты
 import Login from './components/Login';
 import Navbar from './components/Navbar';
 
-// Страницы (создадим позже)
-import AdminDashboard from './pages/AdminDashboard';
+import AdminDashboard from './pages/admin/AdminDashboard';
 import WaiterDashboard from './pages/WaiterDashboard';
 import ChefDashboard from './pages/ChefDashboard';
 

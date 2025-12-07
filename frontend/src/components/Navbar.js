@@ -28,6 +28,7 @@ const AppNavbar = () => {
                                     <>
                                         <Nav.Link as={Link} to="/admin/bookings">Бронирования</Nav.Link>
                                         <Nav.Link as={Link} to="/admin/menu">Меню</Nav.Link>
+                                        <Nav.Link as={Link} to="/admin/suppliers">Поставки</Nav.Link>
                                         <Nav.Link as={Link} to="/admin/employees">Сотрудники</Nav.Link>
                                         <Nav.Link as={Link} to="/admin/reports">Отчеты</Nav.Link>
                                     </>
@@ -37,6 +38,7 @@ const AppNavbar = () => {
                                         <Nav.Link as={Link} to="/waiter/tables">Столы</Nav.Link>
                                         <Nav.Link as={Link} to="/waiter/orders">Заказы</Nav.Link>
                                         <Nav.Link as={Link} to="/waiter/menu">Меню</Nav.Link>
+                                        <Nav.Link as={Link} to="/waiter/notifications">Уведомления</Nav.Link>
                                     </>
                                 )}
                                 {user.position === 'Повар' && (
