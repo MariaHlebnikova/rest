@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
     Container, Card, Button, Alert, Spinner,
-    InputGroup, FormControl, Row, Col, Badge
+    InputGroup, FormControl, Row, Col, Badge, Table
 } from 'react-bootstrap';
 import { employeeService } from '../../services/employeeService';
 import { authService } from '../../services/auth';
 import EmployeeModal from '../../components/modals/EmployeeModal';
 import PositionModal from '../../components/modals/PositionModal';
 import EmployeeTable from '../../components/EmployeeTable';
-import { FaPlus, FaFilter, FaUsers, FaIdCard, FaSearch, FaSync } from 'react-icons/fa';
+import { FaPlus, FaSearch, FaSync, FaEdit, FaTrash } from 'react-icons/fa';
 
 const AdminEmployees = () => {
     const [employees, setEmployees] = useState([]);
@@ -22,6 +22,7 @@ const AdminEmployees = () => {
     const [showEmployeeModal, setShowEmployeeModal] = useState(false);
     const [showPositionModal, setShowPositionModal] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState(null);
+    const [selectedPosition, setSelectedPosition] = useState(null);
 
     // Статистика
     const [stats, setStats] = useState({
@@ -128,14 +129,52 @@ const AdminEmployees = () => {
         }
     };
 
-    // Обработчики для должностей
-    const handleSavePosition = async (positionData) => {
+    const handleSavePosition = async (positionData, positionId = null) => {
         try {
-            await employeeService.createPosition(positionData);
+            if (positionId) {
+                await employeeService.updatePosition(positionId, positionData);
+            } else {
+                await employeeService.createPosition(positionData);
+            }
+            await loadData();
+            setShowPositionModal(false);
+            setSelectedPosition(null);
+        } catch (err) {
+            alert(err.message || 'Ошибка при сохранении должности');
+            throw err;
+        }
+    };
+
+    const handleDeletePosition = async (positionId) => {
+        const employeesWithPosition = employees.filter(emp => 
+            emp.position_id === positionId || emp.position_name === positions.find(p => p.id === positionId)?.name
+        );
+        
+        if (employeesWithPosition.length > 0) {
+            alert(`Невозможно удалить должность. Есть ${employeesWithPosition.length} сотрудник(ов) с этой должностью.`);
+            return;
+        }
+
+        if (!window.confirm('Вы уверены, что хотите удалить должность? Это действие нельзя отменить.')) {
+            return;
+        }
+
+        try {
+            await employeeService.deletePosition(positionId);
             await loadData();
         } catch (err) {
-            alert(err.message || 'Ошибка при создании должности');
+            alert(err.message || 'Ошибка при удалении должности');
         }
+    };
+
+    const openEditPositionModal = (position) => {
+        setSelectedPosition(position);
+        setShowPositionModal(true);
+    };
+
+    const openAddPositionModal = () => {
+        setSelectedPosition(null);
+        setShowPositionModal(true);
     };
 
     const openEditEmployeeModal = (employee) => {
@@ -158,42 +197,11 @@ const AdminEmployees = () => {
 
     return (
         <Container className="mt-4">
-            <h2 className="mb-4">👥 Управление сотрудниками</h2>
+            <h2 className="mb-4">Управление сотрудниками</h2>
             
             {error && <Alert variant="danger">{error}</Alert>}
 
-            {/* Статистика */}
-            <Row className="mb-4">
-                <Col md={4}>
-                    <Card className="text-center">
-                        <Card.Body>
-                            <FaUsers size={30} className="text-primary mb-2" />
-                            <h4>{stats.total}</h4>
-                            <Card.Text className="text-muted">Всего сотрудников</Card.Text>
-                        </Card.Body>
-                    </Card>
-                </Col>
-                <Col md={4}>
-                    <Card className="text-center">
-                        <Card.Body>
-                            <FaIdCard size={30} className="text-success mb-2" />
-                            <h4>{positions.length}</h4>
-                            <Card.Text className="text-muted">Должностей</Card.Text>
-                        </Card.Body>
-                    </Card>
-                </Col>
-                <Col md={4}>
-                    <Card className="text-center">
-                        <Card.Body>
-                            <div className="text-warning mb-2" style={{ fontSize: '1.5rem' }}>₽</div>
-                            <h4>{stats.totalSalary.toLocaleString()}</h4>
-                            <Card.Text className="text-muted">Общая зарплата в месяц</Card.Text>
-                        </Card.Body>
-                    </Card>
-                </Col>
-            </Row>
-
-            {/* Панель управления */}
+            {/* Панель управления сотрудниками */}
             <Card className="mb-4">
                 <Card.Header className="d-flex justify-content-between align-items-center">
                     <div>
@@ -203,13 +211,6 @@ const AdminEmployees = () => {
                         </small>
                     </div>
                     <div className="d-flex gap-2">
-                        <Button
-                            variant="outline-primary"
-                            size="sm"
-                            onClick={() => setShowPositionModal(true)}
-                        >
-                            <FaPlus /> Должность
-                        </Button>
                         <Button
                             variant="success"
                             size="sm"
@@ -321,9 +322,89 @@ const AdminEmployees = () => {
                     )}
                 </Card.Body>
                 <Card.Footer className="d-flex justify-content-between align-items-center">
-                    <small className="text-muted">
-                        * Вы не можете удалить себя из списка сотрудников
-                    </small>
+                    <Button
+                        variant="outline-secondary"
+                        size="sm"
+                        onClick={loadData}
+                        disabled={loading}
+                    >
+                        <FaSync className={loading ? 'spin' : ''} /> Обновить
+                    </Button>
+                </Card.Footer>
+            </Card>
+
+            {/* Панель управления должностями */}
+            <Card className="mb-4">
+                <Card.Header className="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 className="mb-0">Список должностей</h5>
+                        <small className="text-muted">
+                            Всего: {positions.length} должностей
+                        </small>
+                    </div>
+                    <div className="d-flex gap-2">
+                        <Button
+                            variant="success"
+                            size="sm"
+                            onClick={openAddPositionModal}
+                        >
+                            <FaPlus /> Должность
+                        </Button>
+                    </div>
+                </Card.Header>
+                <Card.Body>
+                    {/* Таблица должностей */}
+                    {positions.length === 0 ? (
+                        <Alert variant="info" className="text-center">
+                            <h5>Нет должностей</h5>
+                            <p>Добавьте первую должность, нажав кнопку "Должность"</p>
+                        </Alert>
+                    ) : (
+                        <div className="table-responsive">
+                            <Table hover striped>
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Название должности</th>
+                                        <th>Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {positions.map(position => (
+                                        <tr key={position.id}>
+                                            <td>
+                                                <strong>#{position.id}</strong>
+                                            </td>
+                                            <td>
+                                                <div>{position.name}</div>
+                                            </td>
+                                            <td>
+                                                <Button
+                                                    variant="outline-primary"
+                                                    size="sm"
+                                                    className="me-2"
+                                                    onClick={() => openEditPositionModal(position)}
+                                                    title="Редактировать"
+                                                >
+                                                    <FaEdit />
+                                                </Button>
+                                                <Button
+                                                    variant="outline-danger"
+                                                    size="sm"
+                                                    onClick={() => handleDeletePosition(position.id)}
+                                                    title="Удалить"
+                                                >
+                                                    <FaTrash />
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </Table>
+                        </div>
+                    )}
+                </Card.Body>
+                <Card.Footer className="d-flex justify-content-between align-items-center">
                     <Button
                         variant="outline-secondary"
                         size="sm"
@@ -338,7 +419,10 @@ const AdminEmployees = () => {
             {/* Модалка сотрудника */}
             <EmployeeModal
                 show={showEmployeeModal}
-                onHide={() => setShowEmployeeModal(false)}
+                onHide={() => {
+                    setShowEmployeeModal(false);
+                    setSelectedEmployee(null);
+                }}
                 employee={selectedEmployee}
                 onSave={handleSaveEmployee}
                 positions={positions}
@@ -347,7 +431,11 @@ const AdminEmployees = () => {
             {/* Модалка должности */}
             <PositionModal
                 show={showPositionModal}
-                onHide={() => setShowPositionModal(false)}
+                onHide={() => {
+                    setShowPositionModal(false);
+                    setSelectedPosition(null);
+                }}
+                position={selectedPosition}
                 onSave={handleSavePosition}
             />
 

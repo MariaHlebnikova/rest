@@ -6,18 +6,9 @@ import hashlib
 
 employees_bp = Blueprint('employees', __name__)
 
-def check_admin_access(current_user):
-    """Проверка, является ли пользователь администратором"""
-    return current_user.get('position') == 'Администратор'
-
 @employees_bp.route('/', methods=['GET'])
 @jwt_required()
 def get_employees():
-    """Получить список всех сотрудников (только для админа)"""
-    current_user = get_jwt_identity()
-    
-    if not check_admin_access(current_user):
-        return jsonify({'error': 'Доступ запрещен. Требуются права администратора'}), 403
     
     employees = Employee.query.all()
     
@@ -42,11 +33,6 @@ def get_employees():
 @employees_bp.route('/', methods=['POST'])
 @jwt_required()
 def create_employee():
-    """Создать нового сотрудника (только для админа)"""
-    current_user = get_jwt_identity()
-    
-    if not check_admin_access(current_user):
-        return jsonify({'error': 'Доступ запрещен. Требуются права администратора'}), 403
     
     data = request.get_json()
     
@@ -92,16 +78,11 @@ def create_employee():
 @employees_bp.route('/<int:employee_id>', methods=['GET'])
 @jwt_required()
 def get_employee(employee_id):
-    """Получить информацию о сотруднике"""
-    current_user = get_jwt_identity()
+
     employee = Employee.query.get(employee_id)
     
     if not employee:
         return jsonify({'error': 'Сотрудник не найден'}), 404
-    
-    # Пользователь может смотреть только свою информацию, если не админ
-    if not check_admin_access(current_user) and employee.id != current_user['id']:
-        return jsonify({'error': 'Доступ запрещен'}), 403
     
     position = Position.query.get(employee.position_id)
     
@@ -120,16 +101,11 @@ def get_employee(employee_id):
 @employees_bp.route('/<int:employee_id>', methods=['PUT'])
 @jwt_required()
 def update_employee(employee_id):
-    """Обновить информацию о сотруднике"""
-    current_user = get_jwt_identity()
+
     employee = Employee.query.get(employee_id)
     
     if not employee:
         return jsonify({'error': 'Сотрудник не найден'}), 404
-    
-    # Только админ может изменять других сотрудников
-    if not check_admin_access(current_user) and employee.id != current_user['id']:
-        return jsonify({'error': 'Доступ запрещен'}), 403
     
     data = request.get_json()
     
@@ -142,9 +118,9 @@ def update_employee(employee_id):
         employee.address = data['address']
     if 'passport_data' in data:
         employee.passport_data = data['passport_data']
-    if 'salary' in data and check_admin_access(current_user):
+    if 'salary' in data:
         employee.salary = data['salary']
-    if 'position_id' in data and check_admin_access(current_user):
+    if 'position_id' in data:
         # Проверка существования новой должности
         position = Position.query.get(data['position_id'])
         if not position:
@@ -163,20 +139,11 @@ def update_employee(employee_id):
 @employees_bp.route('/<int:employee_id>', methods=['DELETE'])
 @jwt_required()
 def delete_employee(employee_id):
-    """Удалить сотрудника (только для админа)"""
-    current_user = get_jwt_identity()
-    
-    if not check_admin_access(current_user):
-        return jsonify({'error': 'Доступ запрещен. Требуются права администратора'}), 403
     
     employee = Employee.query.get(employee_id)
     
     if not employee:
         return jsonify({'error': 'Сотрудник не найден'}), 404
-    
-    # Нельзя удалить самого себя
-    if employee.id == current_user['id']:
-        return jsonify({'error': 'Нельзя удалить самого себя'}), 400
     
     db.session.delete(employee)
     db.session.commit()
@@ -201,16 +168,16 @@ def get_positions():
 @employees_bp.route('/positions', methods=['POST'])
 @jwt_required()
 def create_position():
-    """Создать новую должность (только для админа)"""
-    current_user = get_jwt_identity()
-    
-    if not check_admin_access(current_user):
-        return jsonify({'error': 'Доступ запрещен. Требуются права администратора'}), 403
-    
+    """Создать новую должность"""
     data = request.get_json()
     
     if not data or not data.get('name'):
         return jsonify({'error': 'Название должности обязательно'}), 400
+    
+    # Проверка уникальности
+    existing_position = Position.query.filter_by(name=data['name']).first()
+    if existing_position:
+        return jsonify({'error': 'Должность с таким названием уже существует'}), 400
     
     new_position = Position(name=data['name'])
     
@@ -221,3 +188,52 @@ def create_position():
         'message': 'Должность создана успешно',
         'position_id': new_position.id
     }), 201
+
+@employees_bp.route('/positions/<int:position_id>', methods=['PUT'])
+@jwt_required()
+def update_position(position_id):
+    """Обновить должность"""
+    position = Position.query.get(position_id)
+    
+    if not position:
+        return jsonify({'error': 'Должность не найдена'}), 404
+    
+    data = request.get_json()
+    
+    if not data or not data.get('name'):
+        return jsonify({'error': 'Название должности обязательно'}), 400
+    
+    # Проверка уникальности (исключая текущую должность)
+    existing_position = Position.query.filter(
+        Position.name == data['name'],
+        Position.id != position_id
+    ).first()
+    
+    if existing_position:
+        return jsonify({'error': 'Должность с таким названием уже существует'}), 400
+    
+    position.name = data['name']
+    db.session.commit()
+    
+    return jsonify({'message': 'Должность обновлена успешно'}), 200
+
+@employees_bp.route('/positions/<int:position_id>', methods=['DELETE'])
+@jwt_required()
+def delete_position(position_id):
+    """Удалить должность"""
+    position = Position.query.get(position_id)
+    
+    if not position:
+        return jsonify({'error': 'Должность не найдена'}), 404
+    
+    # Проверка, есть ли сотрудники с этой должностью
+    employees_with_position = Employee.query.filter_by(position_id=position_id).count()
+    if employees_with_position > 0:
+        return jsonify({
+            'error': f'Невозможно удалить должность. Есть {employees_with_position} сотрудник(ов) с этой должностью'
+        }), 400
+    
+    db.session.delete(position)
+    db.session.commit()
+    
+    return jsonify({'message': 'Должность удалена успешно'}), 200

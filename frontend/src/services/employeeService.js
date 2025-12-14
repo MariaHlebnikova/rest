@@ -69,5 +69,35 @@ export const employeeService = {
         } catch (error) {
             throw error.response?.data || error;
         }
+    },
+
+    // Обновить должность - ДОБАВЛЕНО
+    updatePosition: async (positionId, positionData) => {
+        try {
+            const response = await api.put(`/employees/positions/${positionId}`, positionData);
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || error;
+        }
+    },
+
+    // Удалить должность - ДОБАВЛЕНО
+    deletePosition: async (positionId) => {
+        try {
+            const response = await api.delete(`/employees/positions/${positionId}`);
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || error;
+        }
+    },
+
+    // Получить должность по ID - ДОБАВЛЕНО (опционально)
+    getPosition: async (positionId) => {
+        try {
+            const response = await api.get(`/employees/positions/${positionId}`);
+            return response.data;
+        } catch (error) {
+            throw error.response?.data || error;
+        }
     }
 };

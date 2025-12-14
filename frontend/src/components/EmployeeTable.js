@@ -32,7 +32,6 @@ const EmployeeTable = ({ employees, onEdit, onDelete, currentUserId }) => {
                         <th>Должность</th>
                         <th>Телефон</th>
                         <th>Зарплата</th>
-                        <th>Статус</th>
                         <th>Действия</th>
                     </tr>
                 </thead>
@@ -72,9 +71,6 @@ const EmployeeTable = ({ employees, onEdit, onDelete, currentUserId }) => {
                                         {employee.salary.toLocaleString()} ₽
                                     </span>
                                 ) : '-'}
-                            </td>
-                            <td>
-                                <Badge bg="success">Активен</Badge>
                             </td>
                             <td>
                                 <Button

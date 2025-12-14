@@ -1,11 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Form, Button, Alert } from 'react-bootstrap';
 
-const PositionModal = ({ show, onHide, onSave }) => {
+const PositionModal = ({ show, onHide, onSave, position }) => {
     const [name, setName] = useState('');
+    const [description, setDescription] = useState('');
     const [error, setError] = useState('');
+    const [isEditing, setIsEditing] = useState(false);
 
-    const handleSubmit = (e) => {
+    useEffect(() => {
+        if (position) {
+            setName(position.name || '');
+            setDescription(position.description || '');
+            setIsEditing(true);
+        } else {
+            setName('');
+            setDescription('');
+            setIsEditing(false);
+        }
+        setError('');
+    }, [position, show]);
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
         
         if (!name.trim()) {
@@ -13,13 +28,30 @@ const PositionModal = ({ show, onHide, onSave }) => {
             return;
         }
 
-        onSave({ name: name.trim() });
-        setName('');
-        setError('');
+        const positionData = {
+            name: name.trim(),
+            description: description.trim() || null
+        };
+
+        try {
+            if (isEditing && position?.id) {
+                await onSave(positionData, position.id);
+            } else {
+                await onSave(positionData);
+            }
+            
+            setName('');
+            setDescription('');
+            setError('');
+            onHide();
+        } catch (err) {
+            console.error('Ошибка сохранения должности:', err);
+        }
     };
 
     const handleClose = () => {
         setName('');
+        setDescription('');
         setError('');
         onHide();
     };
@@ -27,7 +59,9 @@ const PositionModal = ({ show, onHide, onSave }) => {
     return (
         <Modal show={show} onHide={handleClose}>
             <Modal.Header closeButton>
-                <Modal.Title>Добавить новую должность</Modal.Title>
+                <Modal.Title>
+                    {isEditing ? 'Редактировать должность' : 'Добавить новую должность'}
+                </Modal.Title>
             </Modal.Header>
             <Form onSubmit={handleSubmit}>
                 <Modal.Body>
@@ -46,7 +80,7 @@ const PositionModal = ({ show, onHide, onSave }) => {
                             autoFocus
                         />
                         <Form.Text className="text-muted">
-                            Должность будет использоваться при назначении сотрудникам
+                            Уникальное название должности
                         </Form.Text>
                     </Form.Group>
                 </Modal.Body>
@@ -55,7 +89,7 @@ const PositionModal = ({ show, onHide, onSave }) => {
                         Отмена
                     </Button>
                     <Button variant="primary" type="submit">
-                        Добавить
+                        {isEditing ? 'Сохранить изменения' : 'Добавить'}
                     </Button>
                 </Modal.Footer>
             </Form>
