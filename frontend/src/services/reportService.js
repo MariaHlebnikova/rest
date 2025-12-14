@@ -7,7 +7,13 @@ export const reportService = {
             const response = await api.get(`/reports/sales?start_date=${startDate}&end_date=${endDate}`);
             return response.data;
         } catch (error) {
-            throw error.response?.data || error;
+            if (error.response) {
+                throw error.response.data;
+            } else if (error.request) {
+                throw { error: 'Нет ответа от сервера. Проверьте подключение.' };
+            } else {
+                throw { error: error.message };
+            }
         }
     },
 
@@ -16,11 +22,20 @@ export const reportService = {
         try {
             const response = await api.get(
                 `/reports/sales/pdf?start_date=${startDate}&end_date=${endDate}`,
-                { responseType: 'blob' }
+                {
+                    responseType: 'blob',
+                    timeout: 30000 // 30 секунд таймаут
+                }
             );
             return response.data;
         } catch (error) {
-            throw error.response?.data || error;
+            if (error.response) {
+                throw error.response.data;
+            } else if (error.request) {
+                throw { error: 'Нет ответа от сервера при загрузке PDF' };
+            } else {
+                throw { error: error.message };
+            }
         }
     },
 
@@ -30,7 +45,11 @@ export const reportService = {
             const response = await api.get(`/reports/bookings?start_date=${startDate}&end_date=${endDate}`);
             return response.data;
         } catch (error) {
-            throw error.response?.data || error;
+            if (error.response) {
+                throw error.response.data;
+            } else {
+                throw { error: error.message };
+            }
         }
     },
 
@@ -40,7 +59,11 @@ export const reportService = {
             const response = await api.get(`/reports/popular-dishes?limit=${limit}`);
             return response.data;
         } catch (error) {
-            throw error.response?.data || error;
+            if (error.response) {
+                throw error.response.data;
+            } else {
+                throw { error: error.message };
+            }
         }
     },
 
@@ -51,14 +74,17 @@ export const reportService = {
             const response = await api.get(url);
             return response.data;
         } catch (error) {
-            throw error.response?.data || error;
+            if (error.response) {
+                throw error.response.data;
+            } else {
+                throw { error: error.message };
+            }
         }
     },
 
     // Получить финансовую сводку
     getFinancialSummary: async (period) => {
         try {
-            // Здесь будет логика для разных периодов
             const today = new Date();
             let startDate, endDate;
 

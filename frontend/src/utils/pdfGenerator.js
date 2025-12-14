@@ -1,268 +1,168 @@
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
-import { FaChartLine, FaUtensils, FaCalendarAlt, FaMoneyBillWave } from 'react-icons/fa';
 
 // Функция для генерации отчета о выручке
-export const generateRevenueReportPDF = (reportData, period) => {
+export const generateRevenueReportPDF = (reportData, period, dateFilter = null) => {
     const doc = new jsPDF();
     
     // Настройки
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
+    const margin = 20;
     
-    // Заголовок
-    doc.setFontSize(20);
-    doc.setTextColor(40, 40, 40);
-    doc.text('Отчет о выручке', pageWidth / 2, 20, { align: 'center' });
+    // Логотип или заголовок
+    doc.setFontSize(24);
+    doc.setTextColor(0, 102, 204);
+    doc.text('РЕСТОРАН "DELICIA"', pageWidth / 2, 15, { align: 'center' });
     
-    // Период
+    // Заголовок отчета
+    doc.setFontSize(18);
+    doc.setTextColor(0, 0, 0);
+    doc.text('ОТЧЕТ О ПРОДАЖАХ', pageWidth / 2, 25, { align: 'center' });
+    
+    // Период отчета
     doc.setFontSize(12);
     doc.setTextColor(100, 100, 100);
-    doc.text(`Период: ${getPeriodText(period)}`, pageWidth / 2, 30, { align: 'center' });
     
-    // Дата генерации
+    let periodText = getPeriodText(period);
+    if (period === 'custom' && dateFilter) {
+        periodText = `с ${formatDate(dateFilter.startDate)} по ${formatDate(dateFilter.endDate)}`;
+    }
+    
+    doc.text(`Период: ${periodText}`, pageWidth / 2, 35, { align: 'center' });
+    
+    // Дата и время генерации
     doc.setFontSize(10);
-    doc.text(`Дата генерации: ${new Date().toLocaleDateString('ru-RU')}`, pageWidth / 2, 37, { align: 'center' });
+    const now = new Date();
+    doc.text(`Отчет сгенерирован: ${formatDateTime(now)}`, pageWidth / 2, 42, { align: 'center' });
     
-    // Основная информация
-    doc.setFontSize(16);
+    // Финансовая сводка
+    doc.setFontSize(14);
     doc.setTextColor(0, 0, 0);
-    doc.text('Финансовая сводка', 20, 50);
+    doc.text('ФИНАНСОВАЯ СВОДКА', margin, 55);
     
-    doc.setFontSize(12);
-    doc.text(`Общая выручка: ${reportData.total_period_revenue.toFixed(2)} руб.`, 20, 60);
-    doc.text(`Количество позиций в отчете: ${reportData.report.length}`, 20, 67);
+    // Линия под заголовком
+    doc.setDrawColor(0, 102, 204);
+    doc.setLineWidth(0.5);
+    doc.line(margin, 57, pageWidth - margin, 57);
     
-    // Таблица с данными
+    doc.setFontSize(11);
+    doc.setTextColor(60, 60, 60);
+    
+    // Общая информация
+    doc.text(`Общая выручка: ${formatCurrency(reportData.total_period_revenue)}`, margin, 65);
+    doc.text(`Количество блюд в отчете: ${reportData.report.length}`, margin, 72);
+    
+    // Период отчета
+    if (reportData.period) {
+        doc.text(
+            `Период отчета: ${formatDate(reportData.period.start_date)} - ${formatDate(reportData.period.end_date)}`,
+            margin, 79
+        );
+    }
+    
+    // Таблица с данными продаж
     if (reportData.report && reportData.report.length > 0) {
-        const tableData = reportData.report.map(item => [
-            item.dish_name,
-            item.quantity_sold.toString(),
-            `${item.total_revenue.toFixed(2)} руб.`,
-            `${item.revenue_share.toFixed(2)}%`
+        const tableData = reportData.report.map((item, index) => [
+            (index + 1).toString(),
+            item.dish_name || 'Не указано',
+            item.quantity_sold?.toString() || '0',
+            formatCurrency(item.total_revenue || 0),
+            `${(item.revenue_share || 0).toFixed(2)}%`
         ]);
         
         doc.autoTable({
-            startY: 80,
-            head: [['Блюдо', 'Кол-во продаж', 'Выручка', 'Доля в выручке']],
+            startY: 90,
+            head: [['№', 'Наименование блюда', 'Кол-во', 'Выручка', 'Доля, %']],
             body: tableData,
-            theme: 'striped',
+            theme: 'grid',
             headStyles: {
                 fillColor: [41, 128, 185],
                 textColor: 255,
-                fontStyle: 'bold'
+                fontStyle: 'bold',
+                fontSize: 10
             },
-            margin: { left: 20, right: 20 }
+            bodyStyles: {
+                fontSize: 9
+            },
+            alternateRowStyles: {
+                fillColor: [245, 245, 245]
+            },
+            margin: { left: margin, right: margin },
+            styles: {
+                overflow: 'linebreak',
+                cellWidth: 'auto'
+            },
+            columnStyles: {
+                0: { cellWidth: 15 }, // №
+                1: { cellWidth: 70 }, // Наименование
+                2: { cellWidth: 25 }, // Кол-во
+                3: { cellWidth: 35 }, // Выручка
+                4: { cellWidth: 25 }  // Доля
+            },
+            didDrawPage: function(data) {
+                // Номер страницы
+                doc.setFontSize(8);
+                doc.setTextColor(150, 150, 150);
+                doc.text(
+                    `Страница ${data.pageNumber}`,
+                    data.settings.margin.left,
+                    doc.internal.pageSize.height - 10
+                );
+            }
         });
     }
     
-    // График (текстовое представление)
+    // Итоговая строка
     const finalY = doc.lastAutoTable?.finalY || 100;
-    doc.setFontSize(14);
-    doc.text('Топ-5 блюд по выручке:', 20, finalY + 15);
     
-    doc.setFontSize(11);
-    const topDishes = reportData.report.slice(0, 5);
-    topDishes.forEach((dish, index) => {
-        const yPos = finalY + 25 + (index * 7);
-        doc.text(`${index + 1}. ${dish.dish_name} - ${dish.total_revenue.toFixed(2)} руб. (${dish.revenue_share.toFixed(2)}%)`, 
-                25, yPos);
-    });
-    
-    // Подвал
-    doc.setFontSize(10);
-    doc.setTextColor(150, 150, 150);
-    doc.text('© Ресторанная система управления', pageWidth / 2, pageHeight - 10, { align: 'center' });
-    
-    return doc;
-};
-
-// Функция для генерации отчета о популярных блюдах
-export const generatePopularDishesPDF = (dishesData, period) => {
-    const doc = new jsPDF();
-    
-    const pageWidth = doc.internal.pageSize.width;
-    
-    // Заголовок
-    doc.setFontSize(20);
-    doc.setTextColor(40, 40, 40);
-    doc.text('Отчет о популярных блюдах', pageWidth / 2, 20, { align: 'center' });
-    
-    // Период
     doc.setFontSize(12);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Период: ${getPeriodText(period)}`, pageWidth / 2, 30, { align: 'center' });
-    doc.text(`Дата генерации: ${new Date().toLocaleDateString('ru-RU')}`, pageWidth / 2, 37, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+    doc.text('ИТОГО:', pageWidth - margin - 80, finalY + 10);
     
-    // Таблица
-    if (dishesData.popular_dishes && dishesData.popular_dishes.length > 0) {
-        const tableData = dishesData.popular_dishes.map(item => [
-            item.dish_name,
-            item.category_name || '-',
-            item.total_sold.toString(),
-            `${item.total_revenue.toFixed(2)} руб.`,
-            getPopularityStars(item.total_sold, Math.max(...dishesData.popular_dishes.map(d => d.total_sold)))
-        ]);
+    doc.setFontSize(14);
+    doc.setTextColor(0, 128, 0);
+    doc.text(
+        formatCurrency(reportData.total_period_revenue), 
+        pageWidth - margin - 10, 
+        finalY + 10,
+        { align: 'right' }
+    );
+    
+    // Топ блюд
+    const topStartY = finalY + 25;
+    if (reportData.report.length > 0) {
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        doc.text('ТОП-5 БЛЮД ПО ВЫРУЧКЕ:', margin, topStartY);
         
-        doc.autoTable({
-            startY: 50,
-            head: [['Блюдо', 'Категория', 'Продано', 'Выручка', 'Популярность']],
-            body: tableData,
-            theme: 'striped',
-            headStyles: {
-                fillColor: [46, 204, 113],
-                textColor: 255,
-                fontStyle: 'bold'
-            },
-            margin: { left: 20, right: 20 }
+        doc.setFontSize(10);
+        doc.setTextColor(60, 60, 60);
+        
+        const topDishes = reportData.report.slice(0, 5);
+        topDishes.forEach((dish, index) => {
+            const yPos = topStartY + 10 + (index * 6);
+            doc.text(
+                `${index + 1}. ${dish.dish_name} - ${formatCurrency(dish.total_revenue)} (${(dish.revenue_share || 0).toFixed(2)}%)`,
+                margin + 5,
+                yPos
+            );
         });
     }
     
-    // Анализ
-    const finalY = doc.lastAutoTable?.finalY || 100;
-    if (dishesData.popular_dishes && dishesData.popular_dishes.length > 0) {
-        const totalSold = dishesData.popular_dishes.reduce((sum, dish) => sum + dish.total_sold, 0);
-        const totalRevenue = dishesData.popular_dishes.reduce((sum, dish) => sum + dish.total_revenue, 0);
-        const avgPrice = totalRevenue / totalSold;
-        
-        doc.setFontSize(14);
-        doc.text('Ключевые показатели:', 20, finalY + 15);
-        
-        doc.setFontSize(11);
-        doc.text(`• Всего продано блюд: ${totalSold}`, 25, finalY + 25);
-        doc.text(`• Общая выручка: ${totalRevenue.toFixed(2)} руб.`, 25, finalY + 32);
-        doc.text(`• Средняя цена блюда: ${avgPrice.toFixed(2)} руб.`, 25, finalY + 39);
-        
-        const topDish = dishesData.popular_dishes[0];
-        if (topDish) {
-            doc.text(`• Самое популярное блюдо: ${topDish.dish_name} (${topDish.total_sold} продаж)`, 
-                    25, finalY + 46);
-        }
-    }
-    
-    // Подвал
-    doc.setFontSize(10);
-    doc.setTextColor(150, 150, 150);
-    doc.text('© Ресторанная система управления', pageWidth / 2, doc.internal.pageSize.height - 10, { align: 'center' });
-    
-    return doc;
-};
-
-// Функция для генерации комплексного отчета
-export const generateComprehensiveReportPDF = (salesData, dishesData, period) => {
-    const doc = new jsPDF();
-    
-    const pageWidth = doc.internal.pageSize.width;
-    const pageHeight = doc.internal.pageSize.height;
-    
-    // Титульная страница
-    doc.setFontSize(24);
-    doc.setTextColor(52, 152, 219);
-    doc.text('Комплексный отчет ресторана', pageWidth / 2, 40, { align: 'center' });
-    
-    doc.setFontSize(16);
+    // Подпись
+    doc.setFontSize(9);
     doc.setTextColor(100, 100, 100);
-    doc.text('Финансовый анализ и популярность блюд', pageWidth / 2, 55, { align: 'center' });
+    doc.text(
+        'Отчет сгенерирован автоматически системой управления рестораном',
+        pageWidth / 2,
+        pageHeight - 15,
+        { align: 'center' }
+    );
     
-    doc.setFontSize(14);
-    doc.text(`Период: ${getPeriodText(period)}`, pageWidth / 2, 70, { align: 'center' });
-    doc.text(`Дата составления: ${new Date().toLocaleDateString('ru-RU')}`, pageWidth / 2, 80, { align: 'center' });
-    
-    // Добавляем новую страницу для финансового отчета
-    doc.addPage();
-    
-    // Финансовый отчет
-    doc.setFontSize(18);
-    doc.setTextColor(41, 128, 185);
-    doc.text('Финансовый отчет', 20, 20);
-    
-    doc.setFontSize(12);
-    doc.text(`Общая выручка за период: ${salesData.total_period_revenue.toFixed(2)} руб.`, 20, 35);
-    doc.text(`Количество проданных позиций: ${salesData.report.reduce((sum, item) => sum + item.quantity_sold, 0)}`, 20, 42);
-    
-    // Таблица финансов
-    const financeTableData = salesData.report.slice(0, 15).map(item => [
-        item.dish_name,
-        item.quantity_sold.toString(),
-        `${item.total_revenue.toFixed(2)} руб.`,
-        `${item.revenue_share.toFixed(2)}%`
-    ]);
-    
-    doc.autoTable({
-        startY: 55,
-        head: [['Блюдо', 'Кол-во', 'Выручка', 'Доля %']],
-        body: financeTableData,
-        theme: 'striped',
-        headStyles: {
-            fillColor: [41, 128, 185],
-            textColor: 255,
-            fontStyle: 'bold'
-        },
-        margin: { left: 20, right: 20 }
-    });
-    
-    // Добавляем страницу для популярных блюд
-    doc.addPage();
-    
-    // Популярные блюда
-    doc.setFontSize(18);
-    doc.setTextColor(46, 204, 113);
-    doc.text('Анализ популярности блюд', 20, 20);
-    
-    // Таблица популярности
-    const popularityTableData = dishesData.popular_dishes.slice(0, 15).map(item => [
-        item.dish_name,
-        item.category_name || '-',
-        item.total_sold.toString(),
-        `${item.total_revenue.toFixed(2)} руб.`
-    ]);
-    
-    doc.autoTable({
-        startY: 35,
-        head: [['Блюдо', 'Категория', 'Продано', 'Выручка']],
-        body: popularityTableData,
-        theme: 'striped',
-        headStyles: {
-            fillColor: [46, 204, 113],
-            textColor: 255,
-            fontStyle: 'bold'
-        },
-        margin: { left: 20, right: 20 }
-    });
-    
-    // Заключение на последней странице
-    doc.addPage();
-    doc.setFontSize(16);
-    doc.setTextColor(52, 73, 94);
-    doc.text('Заключение и рекомендации', pageWidth / 2, 30, { align: 'center' });
-    
-    doc.setFontSize(12);
-    const conclusionY = 50;
-    doc.text('На основе анализа данных можно сделать следующие выводы:', 20, conclusionY);
-    
-    const topDish = dishesData.popular_dishes[0];
-    const topRevenue = salesData.report[0];
-    
-    if (topDish && topRevenue) {
-        doc.text(`1. Самое популярное блюдо: "${topDish.dish_name}"`, 25, conclusionY + 10);
-        doc.text(`   - Продано: ${topDish.total_sold} раз`, 30, conclusionY + 17);
-        doc.text(`   - Принесло: ${topDish.total_revenue.toFixed(2)} руб.`, 30, conclusionY + 24);
-        
-        doc.text(`2. Блюдо с максимальной выручкой: "${topRevenue.dish_name}"`, 25, conclusionY + 35);
-        doc.text(`   - Выручка: ${topRevenue.total_revenue.toFixed(2)} руб.`, 30, conclusionY + 42);
-        doc.text(`   - Доля в общей выручке: ${topRevenue.revenue_share.toFixed(2)}%`, 30, conclusionY + 49);
-        
-        doc.text('3. Рекомендации:', 25, conclusionY + 60);
-        doc.text('   - Увеличить запас ингредиентов для популярных блюд', 30, conclusionY + 67);
-        doc.text('   - Рассмотреть возможность увеличения цен на блюда с высокой долей выручки', 30, conclusionY + 74);
-        doc.text('   - Разработать акции для менее популярных блюд', 30, conclusionY + 81);
-    }
-    
-    // Подвал
-    doc.setFontSize(10);
-    doc.setTextColor(150, 150, 150);
-    doc.text('© Ресторанная система управления. Отчет сгенерирован автоматически.', 
-            pageWidth / 2, pageHeight - 10, { align: 'center' });
+    // Контактная информация
+    doc.setFontSize(8);
+    doc.text('© 2024 Ресторан "Delicia". Все права защищены.', pageWidth / 2, pageHeight - 5, { align: 'center' });
     
     return doc;
 };
@@ -274,21 +174,53 @@ const getPeriodText = (period) => {
         'week': 'За неделю',
         'month': 'За месяц',
         'year': 'За год',
-        'custom': 'Выбранный период'
+        'custom': 'Произвольный период'
     };
     return periods[period] || period;
 };
 
-const getPopularityStars = (count, maxCount) => {
-    const percentage = (count / maxCount) * 100;
-    if (percentage >= 80) return '★★★★★';
-    if (percentage >= 60) return '★★★★☆';
-    if (percentage >= 40) return '★★★☆☆';
-    if (percentage >= 20) return '★★☆☆☆';
-    return '★☆☆☆☆';
+const formatCurrency = (amount) => {
+    return `${Number(amount || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} руб.`;
+};
+
+const formatDate = (dateStr) => {
+    if (!dateStr) return 'н/д';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
+};
+
+const formatDateTime = (date) => {
+    return date.toLocaleString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
 };
 
 // Функция для скачивания PDF
 export const downloadPDF = (pdfDoc, filename) => {
     pdfDoc.save(filename);
+};
+
+// Дополнительные функции для разных типов отчетов
+export const generateBookingReportPDF = (bookingData) => {
+    const doc = new jsPDF();
+    
+    // ... (код для отчета по бронированиям)
+    
+    return doc;
+};
+
+export const generateDailySummaryPDF = (summaryData) => {
+    const doc = new jsPDF();
+    
+    // ... (код для ежедневной сводки)
+    
+    return doc;
 };
