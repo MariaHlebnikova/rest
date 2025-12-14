@@ -272,7 +272,6 @@ const AdminSuppliers = () => {
                                         <th>Поставщик</th>
                                         <th>Дата</th>
                                         <th>Статус</th>
-                                        <th>Сотрудник</th>
                                         <th>Действия</th>
                                     </tr>
                                 </thead>
@@ -287,7 +286,6 @@ const AdminSuppliers = () => {
                                                     {supply.status ? 'Выполнена' : 'В процессе'}
                                                 </Badge>
                                             </td>
-                                            <td>{supply.employee_name}</td>
                                             <td>
                                                 <Button
                                                     variant={supply.status ? 'warning' : 'success'}

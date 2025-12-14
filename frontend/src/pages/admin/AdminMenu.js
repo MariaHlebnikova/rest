@@ -241,7 +241,7 @@ const AdminMenu = () => {
                     if (key === 'all') {
                         loadAllDishes();
                     } else {
-                        const category = categories.find(c => c.id == key);
+                        const category = categories.find(c => c.id === key);
                         if (category) loadDishesByCategory(category);
                     }
                 }}
