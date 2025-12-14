@@ -1,25 +1,20 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 from models import Hall, Table, Booking
 from database import db
 from datetime import datetime
 
 halls_bp = Blueprint('halls', __name__)
 
-def check_admin_access(current_user):
-    """Проверка, является ли пользователь администратором"""
-    return current_user.get('position') == 'Администратор'
-
 # ===================== Залы =====================
 
-@halls_bp.route('/halls', methods=['GET'])
+@halls_bp.route('/', methods=['GET'])
 def get_halls():
     """Получить список всех залов"""
     halls = Hall.query.all()
     
     result = []
     for hall in halls:
-        # Получаем столы этого зала
         tables = Table.query.filter_by(hall_id=hall.id).all()
         
         result.append({
@@ -34,14 +29,17 @@ def get_halls():
     
     return jsonify(result), 200
 
-@halls_bp.route('/halls', methods=['POST'])
+@halls_bp.route('/', methods=['POST', 'OPTIONS'])
 @jwt_required()
 def create_hall():
-    """Создать новый зал (только для админа)"""
-    current_user = get_jwt_identity()
-    
-    if not check_admin_access(current_user):
-        return jsonify({'error': 'Доступ запрещен. Требуются права администратора'}), 403
+    """Создать новый зал"""
+    # Обработка CORS preflight запроса
+    if request.method == 'OPTIONS':
+        response = jsonify({'message': 'CORS preflight'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response, 200
     
     data = request.get_json()
     
@@ -61,7 +59,7 @@ def create_hall():
         'hall_id': new_hall.id
     }), 201
 
-@halls_bp.route('/halls/<int:hall_id>', methods=['GET'])
+@halls_bp.route('/<int:hall_id>', methods=['GET'])
 def get_hall(hall_id):
     """Получить информацию о зале"""
     hall = Hall.query.get(hall_id)
@@ -69,7 +67,6 @@ def get_hall(hall_id):
     if not hall:
         return jsonify({'error': 'Зал не найден'}), 404
     
-    # Получаем столы этого зала
     tables = Table.query.filter_by(hall_id=hall.id).all()
     
     return jsonify({
@@ -82,14 +79,17 @@ def get_hall(hall_id):
         } for table in tables]
     }), 200
 
-@halls_bp.route('/halls/<int:hall_id>', methods=['PUT'])
+@halls_bp.route('/<int:hall_id>', methods=['PUT', 'OPTIONS'])
 @jwt_required()
 def update_hall(hall_id):
-    """Обновить информацию о зале (только для админа)"""
-    current_user = get_jwt_identity()
-    
-    if not check_admin_access(current_user):
-        return jsonify({'error': 'Доступ запрещен. Требуются права администратора'}), 403
+    """Обновить информацию о зале"""
+    # Обработка CORS preflight запроса
+    if request.method == 'OPTIONS':
+        response = jsonify({'message': 'CORS preflight'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response, 200
     
     hall = Hall.query.get(hall_id)
     
@@ -107,21 +107,23 @@ def update_hall(hall_id):
     
     return jsonify({'message': 'Информация о зале обновлена успешно'}), 200
 
-@halls_bp.route('/halls/<int:hall_id>', methods=['DELETE'])
+@halls_bp.route('/<int:hall_id>', methods=['DELETE', 'OPTIONS'])
 @jwt_required()
 def delete_hall(hall_id):
-    """Удалить зал (только для админа)"""
-    current_user = get_jwt_identity()
-    
-    if not check_admin_access(current_user):
-        return jsonify({'error': 'Доступ запрещен. Требуются права администратора'}), 403
+    """Удалить зал"""
+    # Обработка CORS preflight запроса
+    if request.method == 'OPTIONS':
+        response = jsonify({'message': 'CORS preflight'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response, 200
     
     hall = Hall.query.get(hall_id)
     
     if not hall:
         return jsonify({'error': 'Зал не найден'}), 404
     
-    # Проверяем, есть ли столы в зале
     tables = Table.query.filter_by(hall_id=hall.id).all()
     if tables:
         return jsonify({'error': 'Нельзя удалить зал, в котором есть столы'}), 400
@@ -158,24 +160,25 @@ def get_tables():
     
     return jsonify(result), 200
 
-@halls_bp.route('/tables', methods=['POST'])
+@halls_bp.route('/tables', methods=['POST', 'OPTIONS'])
 @jwt_required()
 def create_table():
-    """Создать новый стол (только для админа)"""
-    current_user = get_jwt_identity()
-    
-    if not check_admin_access(current_user):
-        return jsonify({'error': 'Доступ запрещен. Требуются права администратора'}), 403
+    """Создать новый стол"""
+    # Обработка CORS preflight запроса
+    if request.method == 'OPTIONS':
+        response = jsonify({'message': 'CORS preflight'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response, 200
     
     data = request.get_json()
     
-    # Проверка обязательных полей
     required_fields = ['hall_id', 'capacity']
     for field in required_fields:
         if field not in data:
             return jsonify({'error': f'Поле {field} обязательно'}), 400
     
-    # Проверка существования зала
     hall = Hall.query.get(data['hall_id'])
     if not hall:
         return jsonify({'error': 'Зал не найден'}), 404
@@ -187,7 +190,6 @@ def create_table():
     
     db.session.add(new_table)
     
-    # Обновляем количество столов в зале
     hall.table_count = Table.query.filter_by(hall_id=hall.id).count()
     
     db.session.commit()
@@ -214,14 +216,17 @@ def get_table(table_id):
         'capacity': table.capacity
     }), 200
 
-@halls_bp.route('/tables/<int:table_id>', methods=['PUT'])
+@halls_bp.route('/tables/<int:table_id>', methods=['PUT', 'OPTIONS'])
 @jwt_required()
 def update_table(table_id):
-    """Обновить информацию о столе (только для админа)"""
-    current_user = get_jwt_identity()
-    
-    if not check_admin_access(current_user):
-        return jsonify({'error': 'Доступ запрещен. Требуются права администратора'}), 403
+    """Обновить информацию о столе"""
+    # Обработка CORS preflight запроса
+    if request.method == 'OPTIONS':
+        response = jsonify({'message': 'CORS preflight'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response, 200
     
     table = Table.query.get(table_id)
     
@@ -233,7 +238,6 @@ def update_table(table_id):
     old_hall_id = table.hall_id
     
     if 'hall_id' in data:
-        # Проверка существования нового зала
         hall = Hall.query.get(data['hall_id'])
         if not hall:
             return jsonify({'error': 'Зал не найден'}), 404
@@ -244,20 +248,16 @@ def update_table(table_id):
     
     db.session.commit()
     
-    # Обновляем количество столов в старом и новом залах
     if 'hall_id' in data and old_hall_id != data['hall_id']:
-        # Старый зал
         old_hall = Hall.query.get(old_hall_id)
         if old_hall:
             old_hall.table_count = Table.query.filter_by(hall_id=old_hall_id).count()
         
-        # Новый зал
         new_hall = Hall.query.get(data['hall_id'])
         if new_hall:
             new_hall.table_count = Table.query.filter_by(hall_id=data['hall_id']).count()
     
     elif 'hall_id' not in data:
-        # Обновляем только текущий зал
         hall = Hall.query.get(table.hall_id)
         if hall:
             hall.table_count = Table.query.filter_by(hall_id=table.hall_id).count()
@@ -266,21 +266,23 @@ def update_table(table_id):
     
     return jsonify({'message': 'Информация о столе обновлена успешно'}), 200
 
-@halls_bp.route('/tables/<int:table_id>', methods=['DELETE'])
+@halls_bp.route('/tables/<int:table_id>', methods=['DELETE', 'OPTIONS'])
 @jwt_required()
 def delete_table(table_id):
-    """Удалить стол (только для админа)"""
-    current_user = get_jwt_identity()
-    
-    if not check_admin_access(current_user):
-        return jsonify({'error': 'Доступ запрещен. Требуются права администратора'}), 403
+    """Удалить стол"""
+    # Обработка CORS preflight запроса
+    if request.method == 'OPTIONS':
+        response = jsonify({'message': 'CORS preflight'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response, 200
     
     table = Table.query.get(table_id)
     
     if not table:
         return jsonify({'error': 'Стол не найден'}), 404
     
-    # Проверяем, есть ли бронирования на этот стол
     bookings = Booking.query.filter_by(table_id=table_id).all()
     if bookings:
         return jsonify({'error': 'Нельзя удалить стол, на который есть бронирования'}), 400
@@ -290,7 +292,6 @@ def delete_table(table_id):
     db.session.delete(table)
     db.session.commit()
     
-    # Обновляем количество столов в зале
     hall = Hall.query.get(hall_id)
     if hall:
         hall.table_count = Table.query.filter_by(hall_id=hall_id).count()
@@ -313,7 +314,6 @@ def get_available_tables():
     except ValueError:
         return jsonify({'error': 'Неверный формат даты'}), 400
     
-    # Находим все столы
     query = Table.query
     
     if hall_id:
@@ -324,14 +324,12 @@ def get_available_tables():
     
     all_tables = query.all()
     
-    # Находим забронированные столы на эту дату
     booked_tables = Booking.query.filter(
         db.func.DATE(Booking.datetime) == target_date.date()
     ).all()
     
     booked_table_ids = [bt.table_id for bt in booked_tables]
     
-    # Фильтруем столы
     available_tables = []
     for table in all_tables:
         if table.id not in booked_table_ids:

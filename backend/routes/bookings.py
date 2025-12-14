@@ -64,7 +64,7 @@ def create_booking():
     # Создание брони
     new_booking = Booking(
         table_id=data['table_id'],
-        status_id=1,  # "Новый" статус по умолчанию
+        status_id=data.get('status_id', 1),
         datetime=booking_datetime,
         guest_name=data['guest_name'],
         guest_phone=data['guest_phone'],
