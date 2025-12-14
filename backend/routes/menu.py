@@ -1,15 +1,22 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 from models import Dish, DishCategory
 from database import db
 
 menu_bp = Blueprint('menu', __name__)
 
-# ===================== Категории блюд =====================
+# ===================== Категории =====================
 
-@menu_bp.route('/categories', methods=['GET'])
+@menu_bp.route('/categories', methods=['GET', 'OPTIONS'])
 def get_categories():
-    """Получить все категории блюд"""
+    """Получить список всех категорий"""
+    if request.method == 'OPTIONS':
+        response = jsonify({'message': 'CORS preflight'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response, 200
+    
     categories = DishCategory.query.all()
     
     result = []
@@ -21,13 +28,16 @@ def get_categories():
     
     return jsonify(result), 200
 
-@menu_bp.route('/categories', methods=['POST'])
+@menu_bp.route('/categories', methods=['POST', 'OPTIONS'])
 @jwt_required()
 def create_category():
-    """Создать новую категорию (только для админа)"""
-    current_user = get_jwt_identity()
-    if current_user.get('position') != 'Администратор':
-        return jsonify({'error': 'Доступ запрещен'}), 403
+    """Создать новую категорию"""
+    if request.method == 'OPTIONS':
+        response = jsonify({'message': 'CORS preflight'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response, 200
     
     data = request.get_json()
     
@@ -44,32 +54,75 @@ def create_category():
         'category_id': new_category.id
     }), 201
 
+@menu_bp.route('/categories/<int:category_id>', methods=['PUT', 'OPTIONS'])
+@jwt_required()
+def update_category(category_id):
+    """Обновить категорию"""
+    if request.method == 'OPTIONS':
+        response = jsonify({'message': 'CORS preflight'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response, 200
+    
+    category = DishCategory.query.get(category_id)
+    
+    if not category:
+        return jsonify({'error': 'Категория не найдена'}), 404
+    
+    data = request.get_json()
+    
+    if 'name' in data:
+        category.name = data['name']
+    
+    db.session.commit()
+    
+    return jsonify({'message': 'Категория обновлена успешно'}), 200
+
+@menu_bp.route('/categories/<int:category_id>', methods=['DELETE', 'OPTIONS'])
+@jwt_required()
+def delete_category(category_id):
+    """Удалить категорию"""
+    if request.method == 'OPTIONS':
+        response = jsonify({'message': 'CORS preflight'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response, 200
+    
+    category = DishCategory.query.get(category_id)
+    
+    if not category:
+        return jsonify({'error': 'Категория не найдена'}), 404
+    
+    # Проверяем, есть ли блюда в этой категории
+    dishes = Dish.query.filter_by(category_id=category_id).all()
+    if dishes:
+        return jsonify({'error': 'Нельзя удалить категорию, в которой есть блюда'}), 400
+    
+    db.session.delete(category)
+    db.session.commit()
+    
+    return jsonify({'message': 'Категория удалена успешно'}), 200
+
 # ===================== Блюда =====================
 
-@menu_bp.route('/dishes', methods=['GET'])
-@jwt_required(optional=True)
+@menu_bp.route('/dishes', methods=['GET', 'OPTIONS'])
 def get_dishes():
-    """Получить все блюда (с фильтрацией по категории)"""
+    """Получить список всех блюд"""
+    if request.method == 'OPTIONS':
+        response = jsonify({'message': 'CORS preflight'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response, 200
+    
     category_id = request.args.get('category_id', type=int)
     
     query = Dish.query
     
     if category_id:
         query = query.filter_by(category_id=category_id)
-    
-    # Проверяем, авторизован ли пользователь и является ли он админом
-    try:
-        current_user = get_jwt_identity()
-        claims = get_jwt()
-        if current_user and claims.get('position') == 'Администратор':
-            # Админ видит все блюда
-            pass
-        else:
-            # Обычные пользователи видят только доступные
-            query = query.filter_by(is_available=True)
-    except:
-        # Если не авторизован - только доступные
-        query = query.filter_by(is_available=True)
     
     dishes = query.all()
     
@@ -80,49 +133,30 @@ def get_dishes():
         result.append({
             'id': dish.id,
             'name': dish.name,
+            'composition': dish.composition,
+            'price': float(dish.price) if dish.price else 0,
             'category_id': dish.category_id,
             'category_name': category.name if category else None,
-            'composition': dish.composition,
             'weight_grams': dish.weight_grams,
-            'price': float(dish.price) if dish.price else None,
             'is_available': dish.is_available
         })
     
     return jsonify(result), 200
 
-@menu_bp.route('/dishes/<int:dish_id>', methods=['GET'])
-def get_dish(dish_id):
-    """Получить информацию о конкретном блюде"""
-    dish = Dish.query.get(dish_id)
-    
-    if not dish:
-        return jsonify({'error': 'Блюдо не найдено'}), 404
-    
-    category = DishCategory.query.get(dish.category_id)
-    
-    return jsonify({
-        'id': dish.id,
-        'name': dish.name,
-        'category_id': dish.category_id,
-        'category_name': category.name if category else None,
-        'composition': dish.composition,
-        'weight_grams': dish.weight_grams,
-        'price': float(dish.price) if dish.price else None,
-        'is_available': dish.is_available
-    }), 200
-
-@menu_bp.route('/dishes', methods=['POST'])
+@menu_bp.route('/dishes', methods=['POST', 'OPTIONS'])
 @jwt_required()
 def create_dish():
-    """Создать новое блюдо (только для админа)"""
-    current_user = get_jwt_identity()
-    if current_user.get('position') != 'Администратор':
-        return jsonify({'error': 'Доступ запрещен'}), 403
+    """Создать новое блюдо"""
+    if request.method == 'OPTIONS':
+        response = jsonify({'message': 'CORS preflight'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response, 200
     
     data = request.get_json()
     
-    # Проверка обязательных полей
-    required_fields = ['name', 'category_id', 'price']
+    required_fields = ['name', 'price', 'category_id']
     for field in required_fields:
         if field not in data:
             return jsonify({'error': f'Поле {field} обязательно'}), 400
@@ -134,10 +168,10 @@ def create_dish():
     
     new_dish = Dish(
         name=data['name'],
-        category_id=data['category_id'],
         composition=data.get('composition', ''),
-        weight_grams=data.get('weight_grams'),
         price=data['price'],
+        category_id=data['category_id'],
+        weight_grams=data.get('weight_grams'),
         is_available=data.get('is_available', True)
     )
     
@@ -149,13 +183,44 @@ def create_dish():
         'dish_id': new_dish.id
     }), 201
 
-@menu_bp.route('/dishes/<int:dish_id>', methods=['PUT'])
+@menu_bp.route('/dishes/<int:dish_id>', methods=['GET', 'OPTIONS'])
+def get_dish(dish_id):
+    """Получить информацию о блюде"""
+    if request.method == 'OPTIONS':
+        response = jsonify({'message': 'CORS preflight'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response, 200
+    
+    dish = Dish.query.get(dish_id)
+    
+    if not dish:
+        return jsonify({'error': 'Блюдо не найдено'}), 404
+    
+    category = DishCategory.query.get(dish.category_id)
+    
+    return jsonify({
+        'id': dish.id,
+        'name': dish.name,
+        'composition': dish.composition,
+        'price': float(dish.price) if dish.price else 0,
+        'category_id': dish.category_id,
+        'category_name': category.name if category else None,
+        'weight_grams': dish.weight_grams,
+        'is_available': dish.is_available
+    }), 200
+
+@menu_bp.route('/dishes/<int:dish_id>', methods=['PUT', 'OPTIONS'])
 @jwt_required()
 def update_dish(dish_id):
-    """Обновить информацию о блюде (только для админа)"""
-    current_user = get_jwt_identity()
-    if current_user.get('position') != 'Администратор':
-        return jsonify({'error': 'Доступ запрещен'}), 403
+    """Обновить информацию о блюде"""
+    if request.method == 'OPTIONS':
+        response = jsonify({'message': 'CORS preflight'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response, 200
     
     dish = Dish.query.get(dish_id)
     
@@ -164,17 +229,20 @@ def update_dish(dish_id):
     
     data = request.get_json()
     
-    # Обновление полей
     if 'name' in data:
         dish.name = data['name']
-    if 'category_id' in data:
-        dish.category_id = data['category_id']
     if 'composition' in data:
         dish.composition = data['composition']
-    if 'weight_grams' in data:
-        dish.weight_grams = data['weight_grams']
     if 'price' in data:
         dish.price = data['price']
+    if 'category_id' in data:
+        # Проверка существования новой категории
+        category = DishCategory.query.get(data['category_id'])
+        if not category:
+            return jsonify({'error': 'Категория не найдена'}), 404
+        dish.category_id = data['category_id']
+    if 'weight_grams' in data:
+        dish.weight_grams = data['weight_grams']
     if 'is_available' in data:
         dish.is_available = data['is_available']
     
@@ -182,31 +250,39 @@ def update_dish(dish_id):
     
     return jsonify({'message': 'Блюдо обновлено успешно'}), 200
 
-@menu_bp.route('/dishes/<int:dish_id>', methods=['DELETE'])
+@menu_bp.route('/dishes/<int:dish_id>', methods=['DELETE', 'OPTIONS'])
 @jwt_required()
 def delete_dish(dish_id):
-    """Удалить блюдо (только для админа)"""
-    current_user = get_jwt_identity()
-    if current_user.get('position') != 'Администратор':
-        return jsonify({'error': 'Доступ запрещен'}), 403
+    """Удалить блюдо"""
+    if request.method == 'OPTIONS':
+        response = jsonify({'message': 'CORS preflight'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response, 200
     
     dish = Dish.query.get(dish_id)
     
     if not dish:
         return jsonify({'error': 'Блюдо не найдено'}), 404
     
+    # TODO: Проверка, есть ли это блюдо в активных заказах
+    
     db.session.delete(dish)
     db.session.commit()
     
     return jsonify({'message': 'Блюдо удалено успешно'}), 200
 
-@menu_bp.route('/dishes/<int:dish_id>/toggle-availability', methods=['PUT'])
+@menu_bp.route('/dishes/<int:dish_id>/toggle_availability', methods=['PUT', 'OPTIONS'])
 @jwt_required()
 def toggle_dish_availability(dish_id):
-    """Переключить доступность блюда (скрыть/показать)"""
-    current_user = get_jwt_identity()
-    if current_user.get('position') != 'Администратор':
-        return jsonify({'error': 'Доступ запрещен'}), 403
+    """Переключить доступность блюда"""
+    if request.method == 'OPTIONS':
+        response = jsonify({'message': 'CORS preflight'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response, 200
     
     dish = Dish.query.get(dish_id)
     
@@ -216,5 +292,7 @@ def toggle_dish_availability(dish_id):
     dish.is_available = not dish.is_available
     db.session.commit()
     
-    status = "доступно" if dish.is_available else "скрыто"
-    return jsonify({'message': f'Блюдо теперь {status}', 'is_available': dish.is_available}), 200
+    return jsonify({
+        'message': 'Доступность блюда изменена',
+        'is_available': dish.is_available
+    }), 200

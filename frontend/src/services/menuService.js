@@ -72,10 +72,10 @@ export const menuService = {
         }
     },
 
-    // Переключить доступность блюда
+    // Переключить доступность блюда - ИСПРАВЬТЕ URL
     toggleDishAvailability: async (dishId) => {
         try {
-            const response = await api.put(`/menu/dishes/${dishId}/toggle-availability`);
+            const response = await api.put(`/menu/dishes/${dishId}/toggle_availability`);
             return response.data;
         } catch (error) {
             throw error.response?.data || error;
