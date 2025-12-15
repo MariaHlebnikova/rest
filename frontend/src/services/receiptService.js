@@ -14,11 +14,11 @@ export const receiptService = {
             return response.data;
         } catch (error) {
             if (error.response) {
-                throw error.response.data;
+                throw new Error(error.response.data?.error || 'Ошибка сервера');
             } else if (error.request) {
-                throw { error: 'Нет ответа от сервера' };
+                throw new Error('Нет ответа от сервера');
             } else {
-                throw { error: error.message };
+                throw new Error(error.message || 'Неизвестная ошибка');
             }
         }
     },

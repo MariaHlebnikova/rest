@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Card, Form, Alert } from 'react-bootstrap';
+import { Modal, Button,  Form, Alert } from 'react-bootstrap';
 import api from '../../services/api';
 
 const AddDishModal = ({ show, onHide, orderId, onDishAdded }) => {

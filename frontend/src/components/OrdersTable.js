@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Badge, Spinner, Alert } from 'react-bootstrap';
+import { Table, Button, Spinner, Alert } from 'react-bootstrap';
 import { FaReceipt, FaUtensils } from 'react-icons/fa';
 import api from '../services/api';
 import AddDishModal from './modals/AddDishModal';
