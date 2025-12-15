@@ -49,6 +49,7 @@ def create_app(config_name='default'):
     from routes.halls import halls_bp
     from routes.reports import reports_bp
     from routes.receipts import receipts_bp
+    from routes.chef import chef_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(bookings_bp, url_prefix='/api/bookings')
@@ -59,6 +60,7 @@ def create_app(config_name='default'):
     app.register_blueprint(halls_bp, url_prefix='/api/halls')
     app.register_blueprint(reports_bp, url_prefix='/api/reports')
     app.register_blueprint(receipts_bp, url_prefix='/api/receipts')
+    app.register_blueprint(chef_bp, url_prefix='/api/chef')
     
     return app
 

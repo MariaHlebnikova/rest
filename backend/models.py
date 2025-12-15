@@ -234,13 +234,15 @@ class Sale(db.Model):
     order_id = db.Column(db.Integer, db.ForeignKey('restaurant_order.id'), nullable=False)
     dish_id = db.Column(db.Integer, db.ForeignKey('dish.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=1)
+    is_ready = db.Column(db.Boolean, default=False)
     
     def to_dict(self):
         return {
             'id': self.id,
             'order_id': self.order_id,
             'dish_id': self.dish_id,
-            'quantity': self.quantity
+            'quantity': self.quantity,
+            'is_ready': self.is_ready
         }
 
 # Initial Data Functions
