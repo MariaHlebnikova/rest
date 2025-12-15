@@ -156,19 +156,17 @@ def close_order(order_id):
     if not order:
         return jsonify({'error': 'Заказ не найден'}), 404
     
-    # Проверка прав доступа
-    current_user = get_jwt_identity()
-    if current_user.get('position') != 'Администратор' and order.employee_id != current_user['id']:
-        return jsonify({'error': 'Доступ запрещен'}), 403
+    order.is_active = False
     
     # Здесь будет логика генерации PDF чека
     # Пока просто возвращаем успех
     
+    db.session.commit()
+    
     return jsonify({
         'message': 'Заказ закрыт успешно',
         'order_id': order.id,
-        'receipt_available': True,
-        'receipt_url': f'/api/orders/{order_id}/receipt'  # Будущий эндпоинт для чека
+        'receipt_available': True
     }), 200
 
 @orders_bp.route('/<int:order_id>/add-item', methods=['POST'])
@@ -180,11 +178,6 @@ def add_item_to_order(order_id):
     
     if not order:
         return jsonify({'error': 'Заказ не найден'}), 404
-    
-    # Проверка прав доступа
-    current_user = get_jwt_identity()
-    if current_user.get('position') != 'Администратор' and order.employee_id != current_user['id']:
-        return jsonify({'error': 'Доступ запрещен'}), 403
     
     if not data or not data.get('dish_id'):
         return jsonify({'error': 'ID блюда обязательно'}), 400
@@ -229,7 +222,7 @@ def get_active_orders():
     user_id = int(get_jwt_identity())
     user_position = claims.get('position', 'unknown')
     
-    query = Order.query
+    query = Order.query.filter_by(is_active=True)  # ИЗМЕНЕНИЕ: фильтруем по is_active=True
     
     # Если пользователь не администратор, показываем только его заказы
     if user_position != 'Администратор':
@@ -244,6 +237,7 @@ def get_active_orders():
     result = []
     for order in orders:
         table = Table.query.get(order.table_id)
+        hall = table.hall if table else None
         
         # Получаем список блюд в заказе
         dish_names = []
@@ -256,6 +250,7 @@ def get_active_orders():
             'id': order.id,
             'table_id': order.table_id,
             'table_number': table.id if table else None,
+            'hall_name': hall.name if hall else 'Неизвестно',
             'order_datetime': order.order_datetime.isoformat() if order.order_datetime else None,
             'total_amount': float(order.total_amount) if order.total_amount else None,
             'item_count': len(order.sales),

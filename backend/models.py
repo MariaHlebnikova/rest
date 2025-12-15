@@ -211,6 +211,7 @@ class Order(db.Model):
     employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)
     order_datetime = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     total_amount = db.Column(db.Numeric(10, 2), default=0)
+    is_active = db.Column(db.Boolean, default=True)
     
     # Relationships
     sales = db.relationship('Sale', backref='order', lazy=True)
@@ -221,7 +222,8 @@ class Order(db.Model):
             'table_id': self.table_id,
             'employee_id': self.employee_id,
             'order_datetime': self.order_datetime.isoformat() if self.order_datetime else None,
-            'total_amount': float(self.total_amount) if self.total_amount else None
+            'total_amount': float(self.total_amount) if self.total_amount else None,
+            'is_active': self.is_active
         }
 
 # Table: Sale (Продажа)

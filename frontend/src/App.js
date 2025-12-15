@@ -7,8 +7,8 @@ import Login from './components/Login';
 import Navbar from './components/Navbar';
 
 import AdminDashboard from './pages/admin/AdminDashboard';
-import WaiterDashboard from './pages/WaiterDashboard';
-import ChefDashboard from './pages/ChefDashboard';
+import WaiterDashboard from './pages/waiter/WaiterDashboard';
+import ChefDashboard from './pages/chef/ChefDashboard';
 
 // Защищенный маршрут
 const PrivateRoute = ({ children, requiredRole }) => {

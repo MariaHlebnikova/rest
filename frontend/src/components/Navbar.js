@@ -35,10 +35,10 @@ const AppNavbar = () => {
                                 )}
                                 {user.position === 'Официант' && (
                                     <>
-                                        <Nav.Link as={Link} to="/waiter/tables">Столы</Nav.Link>
+                                        {/* <Nav.Link as={Link} to="/waiter/tables">Столы</Nav.Link>
                                         <Nav.Link as={Link} to="/waiter/orders">Заказы</Nav.Link>
                                         <Nav.Link as={Link} to="/waiter/menu">Меню</Nav.Link>
-                                        <Nav.Link as={Link} to="/waiter/notifications">Уведомления</Nav.Link>
+                                        <Nav.Link as={Link} to="/waiter/notifications">Уведомления</Nav.Link> */}
                                     </>
                                 )}
                                 {user.position === 'Повар' && (
